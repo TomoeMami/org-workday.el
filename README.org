@@ -1,0 +1,248 @@
+#+TITLE: org-workday
+#+AUTHOR: TomoeMami
+#+OPTIONS: toc:2
+
+org-workday knows which days are workdays, taking weekends, public
+holidays and make-up workdays into account, and snaps the
+SCHEDULED/DEADLINE timestamps of tasks repeated by
+[[https://github.com/TomoeMami/org-repeat-by-cron.el][org-repeat-by-cron]]
+onto workdays.
+
+* Introduction
+
+When a task managed by org-repeat-by-cron is marked =DONE=, it is
+rescheduled according to its =REPEAT_CRON= property.  org-repeat-by-cron
+repeats a task on an exact date; org-workday then moves that date onto
+the nearest workday, so that weekly reports, monthly invoices or
+standing meetings never land on a weekend or a public holiday.
+
+A day is considered a workday when
+
+- it is declared a *make-up workday* in your calendar file, or
+- it is neither declared a *holiday* nor a weekend day.
+
+Holidays and make-up workdays are ordinary diary sexp entries in your
+Org agenda files, marked with an emoji (or any string you configure).
+This makes the package independent of any particular country's holiday
+data: you keep your own calendar, and org-workday reads it.
+
+* Installation
+
+Requirements:
+
+- Emacs 26.1 or newer,
+- Org 9.0 or newer,
+- [[https://github.com/TomoeMami/org-repeat-by-cron.el][org-repeat-by-cron]] 1.1 or newer (also available from MELPA).
+  Its =global-org-repeat-by-cron-mode= must be enabled for repeats to
+  happen at all.
+
+Installing from source:
+
+#+begin_src elisp
+(use-package org-workday
+  :vc (:url "https://github.com/TomoeMami/org-workday.el" :rev :newest)
+  :after org-repeat-by-cron
+  :config
+  (global-org-workday-mode))
+#+end_src
+
+With straight.el:
+
+#+begin_src elisp
+(use-package org-workday
+  :straight (:host github :repo "TomoeMami/org-workday.el")
+  :after org-repeat-by-cron
+  :config
+  (global-org-workday-mode))
+#+end_src
+
+* Configuration
+
+** Calendar files
+
+#+begin_src elisp
+(setq org-workday-calendar-files '("~/denote/org/phone/cal.org"))
+#+end_src
+
+- When =org-workday-calendar-files= is nil (the default), the files in
+  =org-agenda-files= are used.  Directories are expanded as by the
+  =org-agenda-files= function, so a value like ='("~/org")= works too.
+- The value may also be a single file name string.
+- Files that do not exist (or are directories) are ignored silently.
+- Each file must be a valid Org file containing at least one headline.
+  On Org 9.3 and newer, diary sexp entries in a file without any
+  headline cannot be processed.
+
+** Markers
+
+| Custom variable                 | Default | Meaning                             |
+|---------------------------------+---------+-------------------------------------|
+| =org-workday-workday-marker=    | 💼      | The day is a make-up workday        |
+| =org-workday-holiday-marker=    | 🏮      | The day is a holiday                |
+
+A marker is matched anywhere in the text of a diary sexp entry for
+that day.  If a day carries both markers, the make-up workday wins.
+
+Example calendar file:
+
+#+begin_src org
+* Holidays and make-up workdays
+%%(diary-date 1 1 2026 t) 🏮 New Year's Day
+%%(diary-date 2 21 2026 t) 💼 Make-up workday (a Saturday)
+#+end_src
+
+If no calendar file is configured, or none of the configured files
+exists, only the weekend rule applies.
+
+* Usage
+
+** Enabling
+
+Either enable the global minor mode:
+
+#+begin_src elisp
+(global-org-workday-mode 1)
+#+end_src
+
+or add the function to the hook yourself:
+
+#+begin_src elisp
+(add-hook 'org-repeat-by-cron-after-repeat-functions
+          #'org-workday-snap-to-workday)
+#+end_src
+
+** Which headings are snapped
+
+Only headings carrying the =org-workday-tag= tag (default =工作=) are
+considered.  Everything else is left untouched, even if it has the
+properties described below.
+
+#+begin_src elisp
+(setq org-workday-tag "work")
+#+end_src
+
+** Direction, boundaries and offset
+
+Two heading properties control the search:
+
+- =WORKDAY_DIRECTION= (customizable as =org-workday-direction-prop=)
+- =WORKDAY_OFFSET= (customizable as =org-workday-offset-prop=)
+
+=DIRECTION= is a string with this syntax:
+
+| DIRECTION   | Result                                                       |
+|-------------+--------------------------------------------------------------|
+| =-= (default) | The nearest workday, searching towards the past            |
+| =+=           | The nearest workday, searching towards the future          |
+| =-start=      | The first day of the run of consecutive workdays found towards the past |
+| =-end=        | The last day of that run                                   |
+| =+start=      | The first day of the run found towards the future          |
+| =+end=        | The last day of that run                                   |
+
+Without a boundary word the first workday encountered is used.  With
+=start= the day preceding the result must not be a workday; with =end=
+the day following the result must not be a workday.
+
+=OFFSET= is an integer applied *after* the search: a positive value
+moves the result towards the future, a negative one towards the past.
+Because it is applied afterwards, the offset result may itself fall on
+a non-workday.  The default offset is 0.
+
+Searching stops after =org-workday-search-limit= days (default 30) in
+either direction; when no workday is found, the timestamp is left
+unchanged.
+
+** Which timestamps are snapped
+
+This mirrors what org-repeat-by-cron itself reschedules:
+
+| =REPEAT_DEADLINE= property        | Timestamps snapped         |
+|-----------------------------------+----------------------------|
+| =t=                               | DEADLINE only              |
+| a cron expression (3 or 5 fields) | SCHEDULED and DEADLINE     |
+| absent or anything else           | SCHEDULED only             |
+
+A time of day in the timestamp is preserved; a date-only timestamp
+stays date-only.
+
+** A complete example
+
+#+begin_src org
+* TODO 每周周报 :工作:
+SCHEDULED: <2026-01-05 Mon 09:00>
+:PROPERTIES:
+:REPEAT_CRON: * * MON
+:WORKDAY_DIRECTION: -end
+:END:
+#+end_src
+
+When this task is marked =DONE=, org-repeat-by-cron reschedules it to
+the next Monday, and org-workday moves that date to the last workday of
+the run of workdays containing it.  If the Monday happens to be a
+public holiday, the timestamp lands on the preceding Friday (or on the
+last workday before the holiday), and the =09:00= time is kept.
+
+Note the Org syntax used above: the planning line (=SCHEDULED=, and
+=DEADLINE= if present, on *one* line) must come directly after the
+headline, and the property drawer follows it.  If the planning line is
+placed after the drawer, Org does not recognize it as planning info.
+
+A task with both timestamps:
+
+#+begin_src org
+* TODO 月度结算 :工作:
+SCHEDULED: <2026-01-05 Mon 09:00> DEADLINE: <2026-01-06 Tue 18:00>
+:PROPERTIES:
+:REPEAT_CRON: 1 1 * * *
+:REPEAT_DEADLINE: t
+:WORKDAY_DIRECTION: -end
+:WORKDAY_OFFSET: -1
+:END:
+#+end_src
+
+Here only the DEADLINE is snapped (because =REPEAT_DEADLINE= is =t=),
+to the workday before the last workday of the preceding run.
+
+* Customization
+
+All options live in the =org-workday= customization group
+(=M-x customize-group RET org-workday=):
+
+| Variable                          | Default            | Description                                                        |
+|-----------------------------------+--------------------+--------------------------------------------------------------------|
+| =org-workday-calendar-files=       | nil                | Files with diary sexp entries; nil means use =org-agenda-files=      |
+| =org-workday-workday-marker=       | 💼                 | Entry text marking a make-up workday                                |
+| =org-workday-holiday-marker=       | 🏮                 | Entry text marking a holiday                                        |
+| =org-workday-weekend-days=         | nil                | Weekend day numbers (0 = Sunday); nil means use =org-agenda-weekend-days= |
+| =org-workday-search-limit=         | 30                 | Maximum number of days searched in either direction                |
+| =org-workday-tag=                  | 工作               | Tag a heading must carry to be snapped                              |
+| =org-workday-direction-prop=       | WORKDAY_DIRECTION  | Heading property holding the direction                             |
+| =org-workday-offset-prop=          | WORKDAY_OFFSET     | Heading property holding the offset                                |
+
+* API
+
+| Function                            | Arguments                        | Description                                                                 |
+|-------------------------------------+----------------------------------+-----------------------------------------------------------------------------|
+| =org-workday-date-is-workday-p=     | DATE &optional OFFSET            | Non-nil when the =YYYY-MM-DD= string DATE (plus OFFSET days) is a workday   |
+| =org-workday-find-workday-date=     | DATE-STR &optional DIRECTION OFFSET | The nearest workday as a =YYYY-MM-DD= string, or nil                       |
+| =org-workday-snap-to-workday=       | none                             | Snap the entry at point; intended for the after-repeat hook                 |
+| =global-org-workday-mode=           | none                             | Global minor mode adding the hook                                           |
+
+* Caveats
+
+- The calendar files are read with =org-agenda-get-day-entries=, so the
+  entries must follow the normal diary sexp conventions and the files
+  must be Org files.
+- Only the tag and properties of the heading itself are consulted;
+  inherited tags and properties are not searched.
+- The search is a day-by-day walk bounded by
+  =org-workday-search-limit=; a calendar with a very long holiday run
+  (for example a two-month break) may therefore find nothing.  Raise the
+  limit if needed.
+- OFFSET is applied after the workday search and may produce a
+  non-workday; this is intentional and matches the original behavior of
+  this code.
+
+* License
+
+GPL-3.0-or-later.  See the [[file:LICENSE][LICENSE]] file.

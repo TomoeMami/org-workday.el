@@ -1,0 +1,281 @@
+#+TITLE: org-workday（中文说明）
+#+AUTHOR: TomoeMami
+#+OPTIONS: toc:2
+
+org-workday 根据周末、法定节假日与调休补班信息判断"工作日"，并把由
+[[https://github.com/TomoeMami/org-repeat-by-cron.el][org-repeat-by-cron]]
+重复调度的任务时间戳挪到最近的工作日上。
+
+* 简介
+
+被 =REPEAT_CRON= 管理的任务在标记为 =DONE= 后，会由 org-repeat-by-cron
+按 cron 规则重排到某个确定日期；org-workday 随后把这个日期调整到最近的
+工作日，避免周报、月结、例会这类任务落在周末或法定假日上。
+
+某一天被判定为工作日，当且仅当：
+
+- 该日被日历文件中声明为*调休补班日*；或
+- 该日既没有被声明为*节假日*，也不是周末。
+
+节假日与补班日就是你 Org agenda 文件里的普通 diary sexp 条目，用 emoji
+（或你自定义的任意字符串）标记。因此本包不绑定任何国家的节假日数据：
+日历由你自己维护，org-workday 只负责读取。
+
+* 安装
+
+依赖：
+
+- Emacs 26.1 及以上；
+- Org 9.0 及以上；
+- [[https://github.com/TomoeMami/org-repeat-by-cron.el][org-repeat-by-cron]] 1.1 及以上（MELPA 上也有）。
+  注意必须先启用它的 =global-org-repeat-by-cron-mode=，重复调度才会发生。
+
+从源码安装：
+
+#+begin_src elisp
+(use-package org-workday
+  :vc (:url "https://github.com/TomoeMami/org-workday.el" :rev :newest)
+  :after org-repeat-by-cron
+  :config
+  (global-org-workday-mode))
+#+end_src
+
+使用 straight.el：
+
+#+begin_src elisp
+(use-package org-workday
+  :straight (:host github :repo "TomoeMami/org-workday.el")
+  :after org-repeat-by-cron
+  :config
+  (global-org-workday-mode))
+#+end_src
+
+* 配置
+
+** 日历文件
+
+#+begin_src elisp
+(setq org-workday-calendar-files '("~/denote/org/phone/cal.org"))
+#+end_src
+
+- =org-workday-calendar-files= 默认为 nil，此时使用 =org-agenda-files=
+  中的文件；目录会像 =org-agenda-files= 函数那样自动展开成其中的 Org 文件，
+  所以写成 ='("~/org")= 也可以。
+- 变量值也可以是单个文件名字符串。
+- 不存在的文件（以及目录）会被静默忽略。
+- 每个文件都必须是合法 Org 文件且至少含有一个 headline。在 Org 9.3 及以上，
+  没有 headline 的文件里的 diary sexp 条目无法被处理。
+
+** 标记
+
+| 自定义变量                    | 默认值 | 含义             |
+|-------------------------------+--------+------------------|
+| =org-workday-workday-marker=  | 💼     | 该日为调休补班日 |
+| =org-workday-holiday-marker=  | 🏮     | 该日为节假日     |
+
+标记匹配的是当天 diary sexp 条目文本中的任意位置；若同一天两种标记都有，
+以补班日为准。
+
+日历文件示例：
+
+#+begin_src org
+* 节假日与调休
+%%(diary-date 1 1 2026 t) 🏮 元旦
+%%(diary-date 2 21 2026 t) 💼 调休补班（周六）
+#+end_src
+
+若没有配置任何日历文件，或配置的文件都不存在，则只按周末规则判断。
+
+* 使用
+
+** 启用
+
+启用全局 minor mode：
+
+#+begin_src elisp
+(global-org-workday-mode 1)
+#+end_src
+
+或者自行挂 hook：
+
+#+begin_src elisp
+(add-hook 'org-repeat-by-cron-after-repeat-functions
+          #'org-workday-snap-to-workday)
+#+end_src
+
+** 哪些任务会被调整
+
+只有带 =org-workday-tag= 标签（默认 =工作=）的 heading 才会被处理；
+其余 heading 即使带有下面的属性也不会被改动。
+
+#+begin_src elisp
+(setq org-workday-tag "work")
+#+end_src
+
+** 方向、边界与偏移
+
+两个 heading 属性控制搜索行为：
+
+- =WORKDAY_DIRECTION=（变量名 =org-workday-direction-prop=）
+- =WORKDAY_OFFSET=（变量名 =org-workday-offset-prop=）
+
+=DIRECTION= 的语法如下：
+
+| 方向        | 结果                                                     |
+|-------------+----------------------------------------------------------|
+| =-=（默认） | 向过去找到的最近工作日                                   |
+| =+=         | 向未来找到的最近工作日                                   |
+| =-start=    | 向过去找到的那段连续工作日的*第一天*                     |
+| =-end=      | 向过去找到的那段连续工作日的*最后一天*                   |
+| =+start=    | 向未来找到的那段连续工作日的*第一天*                     |
+| =+end=      | 向未来找到的那段连续工作日的*最后一天*                   |
+
+不含边界词时取遇到的第一个工作日；=start= 要求结果的前一天不是工作日，
+=end= 要求结果的后一天不是工作日。
+
+=OFFSET= 是整数，在搜索*之后*叠加：正数向未来，负数向过去。因为是搜索后
+叠加，结果本身可能不是工作日。默认偏移为 0。
+
+搜索在两个方向上最多走 =org-workday-search-limit= 天（默认 30 天）；
+找不到工作日时时间戳保持原样。
+
+** 哪些时间戳会被调整
+
+与 org-repeat-by-cron 自身的重排范围保持一致：
+
+| =REPEAT_DEADLINE= 属性      | 被调整的时间戳        |
+|-----------------------------+-----------------------|
+| =t=                         | 仅 DEADLINE           |
+| cron 表达式（3 或 5 字段）  | SCHEDULED 与 DEADLINE |
+| 未设置或其它值              | 仅 SCHEDULED          |
+
+时间戳中的 HH:MM 会被保留；原本只有日期的时间戳仍然只有日期。
+
+** 完整示例
+
+#+begin_src org
+* TODO 每周周报 :工作:
+SCHEDULED: <2026-01-05 Mon 09:00>
+:PROPERTIES:
+:REPEAT_CRON: * * MON
+:WORKDAY_DIRECTION: -end
+:END:
+#+end_src
+
+该任务标记 =DONE= 后，org-repeat-by-cron 先把它排到下一个周一，
+org-workday 再把日期挪到"包含该周一的那段连续工作日的最后一天"。
+如果那个周一恰好是法定假日，时间戳会落到它之前的工作日（例如周五），
+且保留 =09:00=。
+
+请注意上面的 Org 语法：planning 行（=SCHEDULED=，若还有 =DEADLINE=
+则与它写在*同一行*）必须紧跟在标题之后，属性抽屉位于 planning 行之后。
+若把 planning 行放在属性抽屉后面，Org 不会把它识别为 planning 信息。
+
+同时带两个时间戳的例子：
+
+#+begin_src org
+* TODO 月度结算 :工作:
+SCHEDULED: <2026-01-05 Mon 09:00> DEADLINE: <2026-01-06 Tue 18:00>
+:PROPERTIES:
+:REPEAT_CRON: 1 1 * * *
+:REPEAT_DEADLINE: t
+:WORKDAY_DIRECTION: -end
+:WORKDAY_OFFSET: -1
+:END:
+#+end_src
+
+因为 =REPEAT_DEADLINE= 为 =t=，这里只会调整 DEADLINE：把它挪到
+"上一段连续工作日的最后一天"的前一个工作日。
+
+* 可自定义变量
+
+所有选项都在 =org-workday= 自定义组中（=M-x customize-group RET org-workday=）：
+
+| 变量                              | 默认值             | 说明                                                              |
+|-----------------------------------+--------------------+-------------------------------------------------------------------|
+| =org-workday-calendar-files=       | nil                | 含 diary sexp 条目的文件；nil 表示使用 =org-agenda-files=           |
+| =org-workday-workday-marker=       | 💼                 | 标记调休补班日的文本                                              |
+| =org-workday-holiday-marker=       | 🏮                 | 标记节假日的文本                                                  |
+| =org-workday-weekend-days=         | nil                | 周末对应的数字（0 为周日）；nil 表示使用 =org-agenda-weekend-days= |
+| =org-workday-search-limit=         | 30                 | 每个方向上最多搜索的天数                                          |
+| =org-workday-tag=                  | 工作               | 需要携带的标签，只有带该标签的 heading 才会被调整                 |
+| =org-workday-direction-prop=       | WORKDAY_DIRECTION  | 保存方向的属性名                                                  |
+| =org-workday-offset-prop=          | WORKDAY_OFFSET     | 保存偏移的属性名                                                  |
+
+* API
+
+| 函数                                | 参数                             | 说明                                                          |
+|-------------------------------------+----------------------------------+---------------------------------------------------------------|
+| =org-workday-date-is-workday-p=     | DATE &optional OFFSET            | =YYYY-MM-DD= 字符串 DATE（加 OFFSET 天）是否为工作日          |
+| =org-workday-find-workday-date=     | DATE-STR &optional DIRECTION OFFSET | 返回最近工作日的 =YYYY-MM-DD= 字符串，找不到返回 nil        |
+| =org-workday-snap-to-workday=       | 无                               | 调整光标所在 entry 的时间戳，供 after-repeat 钩子使用         |
+| =global-org-workday-mode=           | 无                               | 全局 minor mode，负责挂载上面的钩子                           |
+
+* 从个人配置迁移
+
+原来的实现散落在 =config.org= 的 "** org-repeat-by-cron" 小节里，迁移步骤如下。
+
+1. 删除原定义：在该小节中删掉所有 =my/= 前缀的函数定义，以及最后那行
+   =(add-hook 'org-repeat-by-cron-after-repeat-functions
+   #'my/org-repeat-by-cron-snap-to-workday)=。
+   *保留* =use-package org-repeat-by-cron= 本身和
+   =global-org-repeat-by-cron-mode=。
+
+2. 新增本包配置：
+
+   #+begin_src elisp
+   (use-package org-workday
+     :after org-repeat-by-cron
+     :config
+     (setq org-workday-calendar-files '("~/denote/org/phone/cal.org"))
+     (global-org-workday-mode))
+   #+end_src
+
+3. 替换原有调用点（config.org 约 2977 行的金价脚本）：
+
+   #+begin_src elisp
+   ;; 旧
+   (my/datestr-is-workday-p (org-read-date nil nil "-1d"))
+   ;; 新
+   (org-workday-date-is-workday-p (org-read-date nil nil "-1d"))
+   #+end_src
+
+4. 函数对照表：
+
+   | 旧函数                                            | 新函数                                                     |
+   |---------------------------------------------------+------------------------------------------------------------|
+   | =my/datestr-is-workday-p=                          | =org-workday-date-is-workday-p=                            |
+   | =my/org-repeat-by-cron--workday-date=              | =org-workday-find-workday-date=                            |
+   | =my/org-repeat-by-cron--snap-timestamp-to-workday= | =org-workday--snap-timestamp-to-workday=（内部函数）       |
+   | =my/org-repeat-by-cron-snap-to-workday=            | =org-workday-snap-to-workday=                              |
+   | =my/org-repeat-by-cron--normalize-direction=       | 已删除（原代码中从未被调用）                               |
+
+5. 行为差异（均为有意为之）：
+
+   1. 假期/补班判定会检查当天的*全部* diary sexp 条目（原代码只看第一条），
+      同一天两类条目并存时以补班为准，不会漏判；
+   2. 日期运算改用 calendar 数学。原 =date-to-time= 在 Emacs 27.1 上解析
+      =YYYY-MM-DD= 会直接报 =Invalid date=；
+   3. 日历文件支持列表、单个字符串，或默认 =org-agenda-files=，
+      并会自动跳过不存在的文件；
+   4. 方向语法只保留 =+/-= 与 =start/end=（原 snap 文档中提到的
+      =past/future= 从未被解析器实现，本项目不再实现）；
+   5. 不再调用 org-repeat-by-cron 的内部函数
+      =org-repeat-by-cron--cron-rule-arity=，改为自带等价的
+      =org-workday--cron-rule-p=。
+
+6. 注意事项：=cal.org= 必须至少有一个 headline；写入任务时 planning 行
+   （=SCHEDULED=/=DEADLINE=，同一行）必须在属性抽屉之前。
+
+* 注意事项
+
+- 日历文件通过 =org-agenda-get-day-entries= 读取，因此条目必须遵循标准
+  diary sexp 写法，且文件必须是 Org 文件。
+- 只检查 heading 自身的标签与属性，不检查继承来的标签/属性。
+- 搜索是按天逐个检查、受 =org-workday-search-limit= 限制的；若某段假期
+  特别长（例如连续两个月），可能搜不到工作日，此时可调大该上限。
+- OFFSET 在搜索之后叠加，可能得到非工作日；这是有意保留的原有行为。
+
+* 许可证
+
+GPL-3.0-or-later，详见 [[file:LICENSE][LICENSE]]。
