@@ -2,6 +2,8 @@
 #+AUTHOR: TomoeMami
 #+OPTIONS: toc:2
 
+[[https://github.com/TomoeMami/org-workday.el/blob/main/README-cn.org][简体中文说明]]
+
 org-workday knows which days are workdays, taking weekends, public
 holidays and make-up workdays into account, and snaps the
 SCHEDULED/DEADLINE timestamps of tasks repeated by
