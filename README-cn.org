@@ -76,7 +76,7 @@ org-workday RET= 即可。
 ** 使用 =:vc= 关键字
 
 想直接跟随 Git 仓库时，可以使用 use-package 的 =:vc= 关键字。
-它需要 Emacs 29.1 及以上（该版本内置 =package-vc= 与 =:vc= 支持）：
+它需要 Emacs 30.1 及以上（该版本内置 =package-vc= 与 =:vc= 支持）：
 
 #+begin_src elisp
 (use-package org-workday
