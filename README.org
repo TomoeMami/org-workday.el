@@ -40,10 +40,11 @@ Requirements:
 
 ** From Tomoelpa (recommended)
 
-org-workday is distributed through Tomoelpa, a personal package archive
-served from
-[[https://blog.prayhand13013.top/tomoelpa/snapshots/][https://blog.prayhand13013.top/tomoelpa/snapshots/]].
-The archive is named =TomoE= in the examples below.
+org-workday is distributed through [[https://blog.prayhand13013.top/tomoelpa/][TomoElpa]],
+a personal Emacs Lisp package archive.  Its snapshots channel, where
+the package files actually live, is =.../tomoelpa/snapshots/=; that
+path has no browsable directory listing, so use the index page above
+to inspect the package list and the code below to install.
 
 A complete setup, from registering the archive to loading the package:
 

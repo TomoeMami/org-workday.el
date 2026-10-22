@@ -32,9 +32,10 @@ org-workday 根据周末、法定节假日与调休补班信息判断"工作日"
 
 ** 从 Tomoelpa 安装（推荐）
 
-org-workday 通过 Tomoelpa 分发——它是你自己的软件源，地址为
-[[https://blog.prayhand13013.top/tomoelpa/snapshots/][https://blog.prayhand13013.top/tomoelpa/snapshots/]]，
-归档名称为 =TomoE=。
+org-workday 通过 [[https://blog.prayhand13013.top/tomoelpa/][TomoElpa]] 分发——它是一个个人 ELPA 软件源。
+实际的包文件位于其快照频道 =.../tomoelpa/snapshots/= 下；该目录没有
+可浏览的索引（直接访问会 404），请通过上面的索引页查看包列表，
+按下面的配置安装即可。
 
 从注册归档到加载包的完整配置：
 
