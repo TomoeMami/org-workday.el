@@ -62,7 +62,7 @@ org-workday 通过 [[https://blog.prayhand13013.top/tomoelpa/][TomoElpa]] 分发
   (global-org-workday-mode))
 #+end_src
 
-如果 =package-archives= 已在别处设置（例如 =early-init.el=），
+如果 =package-archives= 已在别处设置（例如 =early-init.el= ），
 请合并新条目而不是整体替换：
 
 #+begin_src elisp
