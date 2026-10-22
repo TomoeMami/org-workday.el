@@ -86,7 +86,7 @@ the archive has been refreshed.
 ** With =:vc=
 
 To track the Git repository directly, use use-package's =:vc= keyword.
-It requires Emacs 29.1 or newer, which bundles =package-vc= and =:vc=
+It requires Emacs 30.1 or newer, which bundles =package-vc= and =:vc=
 support:
 
 #+begin_src elisp
