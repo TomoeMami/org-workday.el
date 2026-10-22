@@ -27,10 +27,55 @@ org-workday 根据周末、法定节假日与调休补班信息判断"工作日"
 
 - Emacs 26.1 及以上；
 - Org 9.0 及以上；
-- [[https://github.com/TomoeMami/org-repeat-by-cron.el][org-repeat-by-cron]] 1.1 及以上（MELPA 上也有）。
+- [[https://github.com/TomoeMami/org-repeat-by-cron.el][org-repeat-by-cron]] 1.1 及以上（TomoE 归档中也有）。
   注意必须先启用它的 =global-org-repeat-by-cron-mode=，重复调度才会发生。
 
-从源码安装：
+** 从 Tomoelpa 安装（推荐）
+
+org-workday 通过 Tomoelpa 分发——它是你自己的软件源，地址为
+[[https://blog.prayhand13013.top/tomoelpa/snapshots/][https://blog.prayhand13013.top/tomoelpa/snapshots/]]，
+归档名称为 =TomoE=。
+
+从注册归档到加载包的完整配置：
+
+#+begin_src elisp
+(require 'package)
+
+;; 1. 注册 TomoE 归档
+(setq package-archives
+      '(("TomoE" . "https://blog.prayhand13013.top/tomoelpa/snapshots/")))
+
+;; 可选：同一个包出现在多个归档中时优先使用 TomoE
+(setq package-archive-priorities '(("TomoE" . 10)))
+
+;; 2. 初始化 package.el，并在首次使用时刷新归档内容
+(package-initialize)
+(unless package-archive-contents
+  (package-refresh-contents))
+
+;; 3. 安装并配置 org-workday
+(use-package org-workday
+  :ensure t
+  :after org-repeat-by-cron
+  :config
+  (global-org-workday-mode))
+#+end_src
+
+如果 =package-archives= 已在别处设置（例如 =early-init.el=），
+请合并新条目而不是整体替换：
+
+#+begin_src elisp
+(add-to-list 'package-archives
+             '("TomoE" . "https://blog.prayhand13013.top/tomoelpa/snapshots/") t)
+#+end_src
+
+不用 =:ensure= 的话，刷新归档后执行 =M-x package-install RET
+org-workday RET= 即可。
+
+** 使用 =:vc= 关键字
+
+想直接跟随 Git 仓库时，可以使用 use-package 的 =:vc= 关键字。
+它需要 Emacs 29.1 及以上（该版本内置 =package-vc= 与 =:vc= 支持）：
 
 #+begin_src elisp
 (use-package org-workday
@@ -40,7 +85,12 @@ org-workday 根据周末、法定节假日与调休补班信息判断"工作日"
   (global-org-workday-mode))
 #+end_src
 
-使用 straight.el：
+=:rev :newest= 跟随最新提交；若想固定到最近一次带 tag 的发布，
+改用 =:rev :last-release=。不用 use-package 时，等价命令是
+=M-x package-vc-install RET
+https://github.com/TomoeMami/org-workday.el RET=。
+
+** 使用 straight.el
 
 #+begin_src elisp
 (use-package org-workday

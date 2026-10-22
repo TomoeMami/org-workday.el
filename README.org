@@ -34,11 +34,59 @@ Requirements:
 
 - Emacs 26.1 or newer,
 - Org 9.0 or newer,
-- [[https://github.com/TomoeMami/org-repeat-by-cron.el][org-repeat-by-cron]] 1.1 or newer (also available from MELPA).
+- [[https://github.com/TomoeMami/org-repeat-by-cron.el][org-repeat-by-cron]] 1.1 or newer (also available from Tomoelpa).
   Its =global-org-repeat-by-cron-mode= must be enabled for repeats to
   happen at all.
 
-Installing from source:
+** From Tomoelpa (recommended)
+
+org-workday is distributed through Tomoelpa, a personal package archive
+served from
+[[https://blog.prayhand13013.top/tomoelpa/snapshots/][https://blog.prayhand13013.top/tomoelpa/snapshots/]].
+The archive is named =TomoE= in the examples below.
+
+A complete setup, from registering the archive to loading the package:
+
+#+begin_src elisp
+(require 'package)
+
+;; 1. Register the TomoE archive.
+(setq package-archives
+      '(("TomoE" . "https://blog.prayhand13013.top/tomoelpa/snapshots/")))
+
+;; Optional: prefer TomoE when the same package exists in several
+;; archives.
+(setq package-archive-priorities '(("TomoE" . 10)))
+
+;; 2. Initialize package.el and fetch archive contents once.
+(package-initialize)
+(unless package-archive-contents
+  (package-refresh-contents))
+
+;; 3. Install and configure org-workday.
+(use-package org-workday
+  :ensure t
+  :after org-repeat-by-cron
+  :config
+  (global-org-workday-mode))
+#+end_src
+
+If =package-archives= is already configured elsewhere (for example in
+=early-init.el=), merge the new entry instead of replacing the list:
+
+#+begin_src elisp
+(add-to-list 'package-archives
+             '("TomoE" . "https://blog.prayhand13013.top/tomoelpa/snapshots/") t)
+#+end_src
+
+Without =:ensure=, run =M-x package-install RET org-workday RET= after
+the archive has been refreshed.
+
+** With =:vc=
+
+To track the Git repository directly, use use-package's =:vc= keyword.
+It requires Emacs 29.1 or newer, which bundles =package-vc= and =:vc=
+support:
 
 #+begin_src elisp
 (use-package org-workday
@@ -48,7 +96,12 @@ Installing from source:
   (global-org-workday-mode))
 #+end_src
 
-With straight.el:
+=:rev :newest= follows the latest commit; use =:rev :last-release= to
+track the newest tagged release instead.  Without use-package, the same
+is done with =M-x package-vc-install RET
+https://github.com/TomoeMami/org-workday.el RET=.
+
+** With straight.el
 
 #+begin_src elisp
 (use-package org-workday
