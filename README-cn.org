@@ -28,7 +28,7 @@ org-workday 根据周末、法定节假日与调休补班信息判断"工作日"
 - Emacs 26.1 及以上；
 - Org 9.0 及以上；
 - [[https://github.com/TomoeMami/org-repeat-by-cron.el][org-repeat-by-cron]] 1.1 及以上（TomoE 归档中也有）。
-  注意必须先启用它的 =global-org-repeat-by-cron-mode=，重复调度才会发生。
+  注意必须先启用它的 =global-org-repeat-by-cron-mode= ，重复调度才会发生。
 
 ** 从 Tomoelpa 安装（推荐）
 
